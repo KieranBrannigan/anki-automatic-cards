@@ -1,0 +1,15 @@
+{
+    "path-to-sharex-installation-folder":"C:/Program Files/ShareX/",
+    "workflows":{
+        "name-of-audio-capture-workflow":"Start/Stop screen recording using custom region",
+        "name-of-screenshot-capture-workflow":"Capture region"
+    },
+    "keybinds":
+    {
+        "start":"F4",
+        "stop":"F5"
+    },
+    
+    "capture-audio":true,
+    "capture-screenshot":true
+}
