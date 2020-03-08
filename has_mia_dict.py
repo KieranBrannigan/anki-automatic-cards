@@ -4,6 +4,7 @@ from os.path import join, dirname
 
 import Pyperclip
 import pynput.keyboard as keyboard
+import pynput.mouse as mouse
 
 from aqt import mw
 from aqt.qt import *
@@ -26,6 +27,10 @@ When press keybind:
 
 
     - connect to collection and upload the card
+
+    - capturing screenshots (handleImageExport on left click release [wouldn't work for dragging])
+
+
 '''
 
 class Config:
@@ -91,12 +96,20 @@ class HotKeyListener(QObject):
         self.keyReleased.emit([key])
         return True
 
+    def on_click(self):
+        # if 'released' then handle screenshotexport
+        pass
+
+
     def run(self):
         if isWin:
-            self.listener = self.keyboard.Listener(
+            self.keyboardListener = self.keyboard.Listener(
                 on_press =self.on_press, on_release= self.on_release, mia = self.mw, suppress= True)
+            self.mouseListener = self.mouse.Listener(
+                on_click= self.on_click
+            )
         else:
-            self.listener = self.keyboard.Listener(
+            self.keyboardlistener = self.keyboard.Listener(
                 on_press =self.on_press, on_release= self.on_release)
         self.listener.start()
 
