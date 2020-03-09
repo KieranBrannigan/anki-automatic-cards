@@ -70,9 +70,11 @@ class Config:
 config = Config()
 
 
-class HotKeyListener(QObject):
+class AutoCardsThread(QObject):
     keyPressed = pyqtSignal(list)
     keyReleased = pyqtSignal(list)
+    mouseReleased = pyqtSignal(int)
+    mousePressed = pyqtSignal(int)
 
     def __init__(self, mw):
         if isMac:
@@ -83,8 +85,9 @@ class HotKeyListener(QObject):
             sys.path.insert(1, join(dirname(__file__), 'linux'))
         sys.path.insert(0, join(dirname(__file__)))
         from pynput import keyboard
-        super(HotKeyListener, self).__init__(mw)
+        super(AutoCardsThread, self).__init__(mw)
         self.keyboard = keyboard
+        self.mouse = mouse
         self.mw = mw
         self.config = self.mw.addonManager.getConfig(__name__)
 
@@ -96,9 +99,14 @@ class HotKeyListener(QObject):
         self.keyReleased.emit([key])
         return True
 
-    def on_click(self):
+    def on_click(self, x, y, button, pressed):
         # if 'released' then handle screenshotexport
-        pass
+        if mw.auto_cards.capturingScreenshot:
+            if button == mouse.Button.left:
+                if pressed:
+                    self.mousePressed.emit(1)
+                else:
+                    self.mouseReleased.emit(1)
 
 
     def run(self):
@@ -111,7 +119,8 @@ class HotKeyListener(QObject):
         else:
             self.keyboardlistener = self.keyboard.Listener(
                 on_press =self.on_press, on_release= self.on_release)
-        self.listener.start()
+        self.keyboardListener.start()
+        self.mouseListener.start()
 
 class AutoCards(QObject):
     imageExport = pyqtSignal(int)
@@ -120,36 +129,43 @@ class AutoCards(QObject):
     audioCapture = pyqtSignal(int)
     test = pyqtSignal(int)
     imageCaptured = pyqtSignal(int)
+
+    def __init__(self):
+        super(AutoCards, self).__init__()
+        self.started = False
+        self.capturingScreenshot = False
+        self.selectingAudio = False
+        self.capturingAudio = False
     
     def capture_audio(self):
         #start capturing
         p = subprocess.run([config.sharex_exe,"-workflow",config.capture_audio])
+        self.selectingAudio = True
 
     def stop_audio(self):
         p = subprocess.run([config.sharex_exe,"-workflow",config.capture_audio])
-        QTimer.singleShot(500,self.handleAudioExport)
+        self.capturingAudio = False
+        QTimer.singleShot(400 , self.handleAudioExport)
 
     def handleAudioExport(self):
-        mw.capturing_audio = False
         mw.pressedKeys = []
         mw.hkThread.handleImageExport()
+        self.started = False
 
-    def handleImageExport(self):
+    def handleScreenshotExport(self):
         mw.pressedKeys = []
         mw.hkThread.handleImageExport()
-        QTimer.singleShot(1000 , self.capture_audio)
-        
+        self.capturingScreenshot = False
+        QTimer.singleShot(200 , self.capture_audio)
 
     def capture_screenshot(self):
         p = subprocess.run([config.sharex_exe,"-workflow",config.capture_screenshot])
-        QTimer.singleShot(2500, self.handleImageExport)
-        
-        
+        self.capturingScreenshot = True
 
     def start_combo(self):
         mw.pressedKeys = []
         mw.hkThread.handleSentenceExport()
-        QTimer.singleShot(500 , self.capture_screenshot)
+        QTimer.singleShot(200 , self.capture_screenshot)
 
 mw.pressedKeys = []
 
@@ -159,14 +175,18 @@ def on_key_press(keyList):
     if char not in mw.pressedKeys:
         mw.pressedKeys.append(char)
     
-    if not mw.capturing_audio:
+    if not mw.auto_cards.started:
         if 'Key.f4' in mw.pressedKeys:
-            mw.capturing_audio = True
+            mw.auto_cards.started = True
             mw.auto_cards.start_combo()
 
-    elif mw.capturing_audio:
-        if 'Key.f4' in mw.pressedKeys:
-            mw.auto_cards.stop_audio()
+    elif mw.auto_cards.started:
+        if 'Key.esc' in mw.pressedKeys:
+            #cancel the process.
+            pass
+        if mw.auto_cards.capturingAudio:
+            if 'Key.f4' in mw.pressedKeys:
+                mw.auto_cards.stop_audio()
             
 
 def on_key_release(keyList):
@@ -176,16 +196,21 @@ def on_key_release(keyList):
     except:
         return
 
+def on_mouse_release():
+    if mw.auto_cards.started:
+        if mw.auto_cards.capturingScreenshot:
+            mw.auto_cards.handleScreenshotExport()
 
-mw.capturing_audio = False
+        elif mw.auto_cards.selectingAudio:
+            mw.auto_cards.capturingAudio = True
+
 
 mw.auto_cards = AutoCards()
 mw.auto_cards.sentenceExport.connect(mw.auto_cards.capture_screenshot)
 mw.auto_cards.imageCapture.connect(mw.auto_cards.capture_audio)
 
-
-
-mw.autoCardsThread = HotKeyListener(mw)
+mw.autoCardsThread = AutoCardsThread(mw)
 mw.autoCardsThread.run()
 mw.autoCardsThread.keyPressed.connect(on_key_press)
 mw.autoCardsThread.keyReleased.connect(on_key_release)
+mw.autoCardsThread.mouseReleased.connect(on_mouse_release)
