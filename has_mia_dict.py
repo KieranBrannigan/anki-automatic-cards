@@ -101,12 +101,12 @@ class AutoCardsThread(QObject):
 
     def on_click(self, x, y, button, pressed):
         # if 'released' then handle screenshotexport
-        if mw.auto_cards.capturingScreenshot:
-            if button == mouse.Button.left:
-                if pressed:
-                    self.mousePressed.emit(1)
-                else:
-                    self.mouseReleased.emit(1)
+        if button == mouse.Button.left:
+            if pressed:
+                self.mousePressed.emit(1)
+            else:
+                self.mouseReleased.emit(1)
+                
 
 
     def run(self):
