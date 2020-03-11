@@ -11,5 +11,6 @@
     },
     
     "capture-audio":true,
-    "capture-screenshot":true
+    "capture-screenshot":true,
+    "auto-export-finished":false
 }

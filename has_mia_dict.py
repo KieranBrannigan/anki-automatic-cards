@@ -46,6 +46,7 @@ class Config:
         self.capture_screenshot = conf['workflows']['name-of-screenshot-capture-workflow']
         self.start_key = conf['keybinds']['start']
         self.sharex_folder = conf['path-to-sharex-installation-folder']
+        self.autoExportFinished = conf['auto-export-finished']
 
     def get_sharex_exe(self):
         if not self.sharex_folder == "":
@@ -133,9 +134,11 @@ class AutoCards(QObject):
     def __init__(self):
         super(AutoCards, self).__init__()
         self.started = False
+        self.selectingScreenshot = False
         self.capturingScreenshot = False
         self.selectingAudio = False
         self.capturingAudio = False
+        self.autoExportFinished = config.autoExportFinished
     
     def capture_audio(self):
         #start capturing
@@ -145,11 +148,13 @@ class AutoCards(QObject):
     def stop_audio(self):
         p = subprocess.run([config.sharex_exe,"-workflow",config.capture_audio])
         self.capturingAudio = False
-        QTimer.singleShot(400 , self.handleAudioExport)
+        QTimer.singleShot(300 , self.handleAudioExport)
 
     def handleAudioExport(self):
         mw.pressedKeys = []
         mw.hkThread.handleImageExport()
+        if self.autoExportFinished:
+            QTimer(200,mw.hkThread.attemptAddCard)
         self.started = False
 
     def handleScreenshotExport(self):
@@ -182,11 +187,16 @@ def on_key_press(keyList):
 
     elif mw.auto_cards.started:
         if 'Key.esc' in mw.pressedKeys:
-            #cancel the process.
-            pass
+            #cancel the process
+            #reinitialise the object
+            mw.auto_cards = AutoCards()
+            mw.pressedKeys = []
+            return
+            
         if mw.auto_cards.capturingAudio:
             if 'Key.f4' in mw.pressedKeys:
                 mw.auto_cards.stop_audio()
+
             
 
 def on_key_release(keyList):
@@ -199,7 +209,7 @@ def on_key_release(keyList):
 def on_mouse_release():
     if mw.auto_cards.started:
         if mw.auto_cards.capturingScreenshot:
-            mw.auto_cards.handleScreenshotExport()
+            QTimer.singleShot(200,mw.auto_cards.handleScreenshotExport)
 
         elif mw.auto_cards.selectingAudio:
             mw.auto_cards.capturingAudio = True
